@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    implementation 'org.apache.logging.log4j:log4j-api:2.14.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.14.1'
+    implementation 'io.netty:netty-all:4.1.65.Final'
+    implementation 'mysql:mysql-connector-java:8.0.25'
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0-RC1'
+    implementation 'com.google.code.gson:gson:2.7'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    implementation 'com.google.protobuf:protobuf-gradle-plugin:0.8.19'
+    implementation 'com.rabbitmq:amqp-client:5.15.0'
+}
+
+test {
+    useJUnitPlatform()
+}

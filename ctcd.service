@@ -1,0 +1,14 @@
+[Unit]
+Description=ctcd
+After=network.target
+
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dtd/quang/ctcd
+ExecStart=/bin/sh /home/dtd/quang/ctcd/ctcd.sh
+PIDFile=/home/dtd/quang/ctcd/ctcd.pid
+User=%i
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+/.gradle/*
+/gradle/*
+/.git/*
+/.idea/*
+/build/*
+/conf/*
+/docs/*
+/images/*
+/lib/*
+/log/*

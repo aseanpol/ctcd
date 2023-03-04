@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /home/dtd/quang/ctcd
+/home/dtd/quang/jdk17/bin/java -Xms512M -Xmx2G -classpath ".:build/classes/java/main:lib:conf:lib/log4j-api-2.14.1.jar:lib/log4j-core-2.14.1.jar:lib/netty-all-4.1.65.Final.jar:lib/mysql-connector-java-8.0.25.jar:lib/jakarta.activation-api-2.1.0-RC1.jar:lib/jakarta.xml.bind-api-4.0.0-RC1.jar:lib/gson-2.7.jar:lib/org.eclipse.paho.client.mqttv3-1.2.5.jar:lib/slf4j-api-1.7.36.jar:lib/protobuf-java-3.11.4.jar:lib/amqp-client-5.15.0.jar" dxq.Consumer
