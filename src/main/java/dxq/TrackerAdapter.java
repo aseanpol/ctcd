@@ -62,8 +62,6 @@ public class TrackerAdapter extends Thread{
         int speed = 0, sdStatus = 0;
         boolean overSpeed = false, power = false, sd = true, door = false, isOvertime = false;
         int fuelRaw = 0;
-//        int fuelValue = 0;
-
         int angle = 0, distance = 0;
 
         int tempValue = 0;
@@ -283,49 +281,76 @@ public class TrackerAdapter extends Thread{
                     this.updateEvent(deviceId, action, result, param, time);
                 }
             }
-        }else if(msgType.equals(CTCTracker.IMAGE)){
-            Tracker t = this.validateIMEI(imei, Tracker.CTCTRACKER);
+        }else if(msgType.equals(CTCTracker.PHOTO)){
+            if(payload.length<100) return;// neu <100 byte thi msg error
+            Tracker t = this.validateImageIMEI(imei, Tracker.CTCTRACKER);
             if(!(t instanceof CTCTracker)) {
                 System.out.println("device " + imei + " is null, not process image");
                 return;
             }
-            try{
-                String header = new String(Arrays.copyOfRange(payload, payload.length-20, payload.length));
-                int semiColonIndex = header.lastIndexOf(";");
-                if(semiColonIndex>0){
-                    header = header.substring(semiColonIndex+1);
-                    String[] arr = header.split(",");
+            // neu khong cam3Enable hoac khong phai ND91 thi khong xu ly
+            if(!t.isCam3Enable() || !t.isND91()){
+                System.out.println("device photo "+ imei + " khong enable cam3");
+                return;
+            }
+            BufferedOutputStream bos = null;
+            try {
+                String param = new String(Arrays.copyOfRange(payload, payload.length - 100, payload.length));
+                int semiColonIndex = param.lastIndexOf(";");
+                if (semiColonIndex > 0) {
+                    param = param.substring(semiColonIndex + 1);
+                    // payload duoc cat bo phan ;param
+                    payload = Arrays.copyOfRange(payload, 0, payload.length - param.length() - 1);
+
+                    String[] arr = param.split(",");
                     unixTime = Long.parseLong(arr[0]);
-                    int frameSize = Integer.parseInt(arr[1]);
+                    lat = Float.parseFloat(arr[1]);
+                    lng = Float.parseFloat(arr[2]);
+                    speed = Integer.parseInt(arr[3]);
+                    driver = arr[4];
+                    license = arr[5];
+                    int frameSize = Integer.parseInt(arr[6]);
+                    String dateTime = MyUtil.unixTime2Date(unixTime);
+                    t.setPhoto3Path(unixTime + ".jpg");
 //                    String folderName = System.getProperty("user.dir") + "/images";
-                    String folderName = util.getImagesPath() + "/" + t.getID();
+                    String folderName = util.getPhotosPath() + "/" + t.getID();
                     File folder = new File(folderName);
-                    if(!folder.exists()){
+                    if (!folder.exists()) {
                         // neu chua co folder thi create folder
                         boolean success = folder.mkdir();
                         System.out.println("Create folder " + folderName + " success : " + success);
-                        if(!success) {
+                        if (!success) {
                             // neu tao folder khong duoc thi return
-                            System.out.println("Crete folder error, imei=" + imei);
+                            System.out.println("Create folder error, imei=" + imei);
                             return;
                         }
                     }
-                    String fileName = folderName + "/"+ unixTime + ".png";
+                    String fileName = folderName + "/" + t.getPhoto3Path();
+                    System.out.println("param=" + unixTime + "," + lat + "," + lng + "," + speed + "," + driver + "," + license + "," + dateTime);
                     // co duoc mang byte payload -> xu ly image
-
 
 
                     // ket qua la mang byte imageData
                     byte[] imageData = Arrays.copyOfRange(payload, 0, payload.length);
-//                    System.out.println(payload.length+","+imageData.length);
+                    System.out.println("payload length=" + payload.length + ",frameSize=" + frameSize + ",destination array length=" + imageData.length);
+
 //                    System.out.println("frameSize="+frameSize);
-                    BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fileName));
+                    bos = new BufferedOutputStream(new FileOutputStream(fileName));
                     bos.write(imageData, 0, frameSize);
                     bos.flush();
                     bos.close();
+
+                    // luu photo3Path vao bang device
+                    updatePhoto3Path(t.getID(), t.getPhoto3Path());
                     System.out.println("save photo success : " + fileName + ", frame size=" + frameSize);
                 }
-            }catch(Exception ex){ex.printStackTrace();}
+            }catch(Exception ex){
+                ex.printStackTrace();
+            }finally{
+                try{
+                    if(bos != null) bos.close();
+                }catch(Exception e){}
+            }
         }
     }
 
@@ -475,18 +500,22 @@ public class TrackerAdapter extends Thread{
         return tracker;
     }
 
+    // Quang add 04/03/23 : gan giong validateIMEI nhung chi lay 1 so field can thiet cho image/photo
     public Tracker validateImageIMEI(String imei, int trackerType) {
+
         Tracker tracker = null;
         Connection con = null;
         Statement st = null;
         ResultSet rs = null;
         String sql = "";
 
-        sql = "SELECT device_id, name, power_id, fuel_enable, tank_capac, fuel_delta, " +
-                "fuel_id, temp_enable, temp_limit, aircon_enable, aircon_id, " +
-                "truck_enable, truck_id, dvr_enable, dvr_id, door_id, log_id, " +
-                "day_stretch, day_elapse, fix_gps, nd91, vin, speed_limit, speed_vio_id FROM device " +
-                "WHERE imei='" + imei + "' LIMIT 1";
+//        sql = "SELECT device_id, name, power_id, fuel_enable, tank_capac, fuel_delta, " +
+//                "fuel_id, temp_enable, temp_limit, aircon_enable, aircon_id, " +
+//                "truck_enable, truck_id, dvr_enable, dvr_id, door_id, log_id, " +
+//                "day_stretch, day_elapse, fix_gps, nd91, vin, speed_limit, speed_vio_id FROM device " +
+//                "WHERE imei='" + imei + "' LIMIT 1";
+        sql = "SELECT device_id, name, cam1_enable, cam2_enable, cam3_enable, " +
+                "log_id, nd91, vin FROM device WHERE imei='" + imei + "' LIMIT 1";
         boolean exist = false;
         try {
             con = util.getRtsConnection();
@@ -501,28 +530,11 @@ public class TrackerAdapter extends Thread{
                 }
                 int deviceID = rs.getInt("device_id");
                 String name = rs.getString("name");
-                long power_id = rs.getLong("power_id");
-                boolean fuel_enable = rs.getBoolean("fuel_enable");
-                int tank_capac = rs.getInt("tank_capac");
-                int fuel_delta = rs.getInt("fuel_delta");
-                long fuel_id = rs.getLong("fuel_id");
-                boolean temp_enable = rs.getBoolean("temp_enable");
-                int temp_limit = rs.getInt("temp_limit");
-                boolean aircon_enable = rs.getBoolean("aircon_enable");
-                long aircon_id = rs.getLong("aircon_id");
-                boolean truck_enable = rs.getBoolean("truck_enable");
-                long truck_id = rs.getLong("truck_id");
-                boolean dvr_enable = rs.getBoolean("dvr_enable");
-                long dvr_id = rs.getLong("dvr_id");
-                long door_id = rs.getLong("door_id");
-
+                boolean cam1Enable = rs.getBoolean("cam1_enable");
+                boolean cam2Enable = rs.getBoolean("cam2_enable");
+                boolean cam3Enable = rs.getBoolean("cam3_enable");
                 long logID = rs.getLong("log_id");
-                int day_stretch = rs.getInt("day_stretch");
-                int dayMovingElapse = rs.getInt("day_elapse");
-                boolean fixGPS = rs.getBoolean("fix_gps");
                 boolean nd91 = rs.getBoolean("nd91");
-                int speed_limit = rs.getInt("speed_limit");
-                long speedVioID = rs.getLong("speed_vio_id");
                 String numberPlate = rs.getString("vin");
 
                 st.close();
@@ -532,26 +544,10 @@ public class TrackerAdapter extends Thread{
                 tracker.setName(name);
                 tracker.setIMEI(imei);
                 tracker.setLogID(logID);
+                tracker.setCam1Enable(cam1Enable);
+                tracker.setCam2Enable(cam2Enable);
+                tracker.setCam3Enable(cam3Enable);
 
-                tracker.setPowerId(power_id);
-                tracker.setFuelEnable(fuel_enable);
-                tracker.setTankCapac(tank_capac);
-                tracker.setFuelDelta(fuel_delta);
-                tracker.setFuelId(fuel_id);
-                tracker.setTempEnable(temp_enable);
-                tracker.setTempLimit(temp_limit);
-                tracker.setAirconEnable(aircon_enable);
-                tracker.setAirconId(aircon_id);
-                tracker.setTruckEnable(truck_enable);
-                tracker.setTruckId(truck_id);
-                tracker.setDvrEnable(dvr_enable);
-                tracker.setDvrId(dvr_id);
-                tracker.setDayStretch(day_stretch);
-                tracker.setDayMovingElapse(dayMovingElapse);
-                tracker.setFixGPS(fixGPS);
-                tracker.setND91(nd91);
-                tracker.setSpeedLimit(speed_limit);
-                tracker.setSpeedVioID(speedVioID);
                 // Quang add 17/02/23
                 tracker.setNumberPlate(numberPlate);
                 exist = true;
@@ -563,46 +559,6 @@ public class TrackerAdapter extends Thread{
                 con.close();
                 return null;
             }
-
-//            if(exist) {
-//                // update tracker type
-//                con = util.getRtsConnection();
-//                if(tracker.isFuelEnable()){
-//                    TreeMap<Integer, Integer> calibMap = new TreeMap<Integer, Integer>();
-//                    sql = "SELECT * FROM calib WHERE device_id=" + tracker.getID();
-//                    st = con.createStatement();
-//                    rs = st.executeQuery(sql);
-//                    while(rs.next()) {
-//                        long calibID = rs.getLong("calib_id");
-//                        int sensorLevel = rs.getInt("sensor_level");
-//                        int fuelValue = rs.getInt("fuel_value");
-//
-//                        calibMap.put(sensorLevel, fuelValue);
-////                        System.out.println(calibID+","+sensorLevel+","+fuelValue);
-//                    }
-//                    tracker.setCalibMap(calibMap);
-//                    st.close();
-//                }
-//                con.close();
-//            }
-
-//            if(exist) {
-//                // lay taxCode trong slave account
-//                String taxCode = "";
-//                con = util.getRtsConnection();
-//                st = con.createStatement();
-//
-//                sql = "SELECT tax_code from slave_account INNER JOIN slave_group ON slave_account.slave_id=slave_group.slave_id " +
-//                        "WHERE slave_group.device_id=" + tracker.getID() + " ORDER BY slave_account.slave_id LIMIT 1";
-//                rs = st.executeQuery(sql);
-//
-//                if(rs.next()) {
-//                    taxCode = rs.getString("tax_code");
-//                }
-//                st.close();
-//                con.close();
-//                tracker.setTaxCode(taxCode);
-//            }
         }catch(Exception ex) {
             ex.printStackTrace();
             this.writeAdapterLog("Exception in validateIMEI, msg = " + ex.getMessage());
@@ -1354,39 +1310,6 @@ public class TrackerAdapter extends Thread{
                 }
             }
         }
-//        System.out.println("process fuel");
-//        Connection con = null;
-//        Statement st = null;
-//        ResultSet rs = null;
-//        String sql = "";
-//        long lastInsertID = 0;
-//        int rowCount = 0;
-//
-//        int delta = tracker.getFuelValue() - tracker.getPrevFuel();
-//        if(Math.abs(delta) >= tracker.getFuelDelta()){
-//            // -> insert record
-//            sql = "INSERT INTO fuel VALUES(null," + tracker.getID() + "," +
-//                    "" + tracker.getPrevFuel() + "," + tracker.getFuelValue() + "," +
-//                    "" + delta + "," + tracker.getLogID() + "," + tracker.getTime() + ")";
-//            try{
-//                con = util.getRtsConnection();
-//                st = con.createStatement();
-//                st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
-//                rs = st.getGeneratedKeys();
-//                if(rs!=null && rs.next()) {
-//                    lastInsertID = rs.getLong(1);
-//                }
-//
-//                sql = "UPDATE device SET fuel_id=" + lastInsertID + " " +
-//                        "WHERE device_id=" + tracker.getID();
-//                rowCount = st.executeUpdate(sql);
-//                st.close();
-//                con.close();
-//            }catch(Exception ex){
-//                ex.printStackTrace();
-//                this.writeAdapterLog("Exception in processFuel, msg = " + ex.getMessage());
-//            }
-//        }
     }
 
     //----------------------------------------------------------------------------------------------------
@@ -1539,6 +1462,23 @@ public class TrackerAdapter extends Thread{
         }catch(Exception ex) {
             ex.printStackTrace();
             this.writeAdapterLog("Exception in updateEvent, msg = " + ex.getMessage());
+        }
+    }
+
+    // Quang add 05/03/23
+    private synchronized void updatePhoto3Path(long deviceID, String photo3Path){
+        Connection con = null;
+        ResultSet rs = null;
+        Statement st = null;
+        String sql = "UPDATE device SET photo3_path='" + photo3Path + "' WHERE device_id=" + deviceID;
+        try{
+            con = util.getRtsConnection();
+            st = con.createStatement();
+            st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+            con.close();
+        }catch(Exception ex){
+            ex.printStackTrace();
+            this.writeAdapterLog("Exception in updatePhoto3Path, msg = " + ex.getMessage());
         }
     }
 

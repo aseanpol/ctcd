@@ -36,7 +36,7 @@ public class MyUtil {
     private int subscribeInterval, publishInterval;
     private boolean forwardEnable;
     private static Path2D.Float path2D;
-    private String imagesPath;
+    private String photosPath;
 
     public MyUtil(){
         try{
@@ -94,7 +94,7 @@ public class MyUtil {
                         Element nod = (Element)node;
                         subscribeInterval = Integer.parseInt(nod.getElementsByTagName("subscribe-interval").item(0).getTextContent());
                         publishInterval = Integer.parseInt(nod.getElementsByTagName("publish-interval").item(0).getTextContent());
-                        imagesPath = nod.getElementsByTagName("images-path").item(0).getTextContent();
+                        photosPath = nod.getElementsByTagName("photos-path").item(0).getTextContent();
                     }/*else if(node.getNodeName().equalsIgnoreCase("forward_server")){
                         Element nod = (Element)node;
                         forwardEnable = Boolean.parseBoolean(nod.getElementsByTagName("enable").item(0).getTextContent());
@@ -264,49 +264,49 @@ public class MyUtil {
 //    public boolean isForwardEnable(){
 //        return forwardEnable;
 //    }
-    public String getImagesPath(){
-    return this.imagesPath;
+    public String getPhotosPath(){
+    return this.photosPath;
 }
 
-    public static String createPhotoFilePath(String imei){// throws Exception {
-        String path=System.getProperty("photo.path");;
-        //String imei="6101225537";
-        String dateFolder="",fileName="";
-        // create folder imei
-        path+="/"+imei;
-        File f=new File(path);
-        f.mkdir();
-        // create folder date
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-        dateFolder=formatter.format(new Date());
-        dateFolder=dateFolder.substring(0,dateFolder.indexOf(" "));
-        path+="/"+dateFolder;
-        f=new File(path);
-        f.mkdir();
-        // Eg : fileName=2011-06-20 20-25-21.jpg
-        formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-        fileName=formatter.format(new Date())+".jpg";
-        path+="/"+fileName;
-        return path;
-    }
-    public static String createPublishPhotoFilePath(String imei,String fileName){
-        String path=System.getProperty("publish.photo.path");;
-        String dateFolder="";//,fileName="";
-        // create folder imei
-        path+="/"+imei;
-        File f=new File(path);
-        f.mkdir();
-        // create folder date
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-        dateFolder=formatter.format(new Date());
-        dateFolder=dateFolder.substring(0,dateFolder.indexOf(" "));
-        path+="/"+dateFolder;
-        f=new File(path);
-        f.mkdir();
-        // Eg : fileName=2011-06-20 20-25-21.jpg
-        path+="/"+fileName;
-        return path;
-    }
+//    public static String createPhotoFilePath(String imei){// throws Exception {
+//        String path=System.getProperty("photo.path");;
+//        //String imei="6101225537";
+//        String dateFolder="",fileName="";
+//        // create folder imei
+//        path+="/"+imei;
+//        File f=new File(path);
+//        f.mkdir();
+//        // create folder date
+//        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
+//        dateFolder=formatter.format(new Date());
+//        dateFolder=dateFolder.substring(0,dateFolder.indexOf(" "));
+//        path+="/"+dateFolder;
+//        f=new File(path);
+//        f.mkdir();
+//        // Eg : fileName=2011-06-20 20-25-21.jpg
+//        formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
+//        fileName=formatter.format(new Date())+".jpg";
+//        path+="/"+fileName;
+//        return path;
+//    }
+//    public static String createPublishPhotoFilePath(String imei,String fileName){
+//        String path=System.getProperty("publish.photo.path");;
+//        String dateFolder="";//,fileName="";
+//        // create folder imei
+//        path+="/"+imei;
+//        File f=new File(path);
+//        f.mkdir();
+//        // create folder date
+//        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
+//        dateFolder=formatter.format(new Date());
+//        dateFolder=dateFolder.substring(0,dateFolder.indexOf(" "));
+//        path+="/"+dateFolder;
+//        f=new File(path);
+//        f.mkdir();
+//        // Eg : fileName=2011-06-20 20-25-21.jpg
+//        path+="/"+fileName;
+//        return path;
+//    }
 
     public static int countMatches(String str, String sub) {
         if (isEmpty(str) || isEmpty(sub)) {

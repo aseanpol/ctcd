@@ -81,6 +81,12 @@ public class Tracker{
     protected long truck_id = 0;
     protected boolean dvr_enable = false;
     protected long dvr_id = -1;
+    protected boolean cam1_enable = false;
+    protected boolean cam2_enable = false;
+    protected boolean cam3_enable = false;
+    protected String photo1Path = "";
+    protected String photo2Path = "";
+    protected String photo3Path = "";
 //    protected long door_id = -1;
     protected int day_stretch = 0;
 //    protected int day_elapse = 0;
@@ -496,6 +502,54 @@ public class Tracker{
 
     public long getDvrId(){
         return this.dvr_id;
+    }
+
+    public void setCam1Enable(boolean cam1_enable){
+        this.cam1_enable = cam1_enable;
+    }
+
+    public void setCam2Enable(boolean cam2_enable){
+        this.cam2_enable = cam2_enable;
+    }
+
+    public void setCam3Enable(boolean cam3_enable){
+        this.cam3_enable = cam3_enable;
+    }
+
+    public boolean isCam1Enable(){
+        return this.cam1_enable;
+    }
+
+    public boolean isCam2Enable(){
+        return this.cam2_enable;
+    }
+
+    public boolean isCam3Enable(){
+        return this.cam3_enable;
+    }
+
+    public void setPhoto1Path(String photo1Path){
+        this.photo1Path = photo1Path;
+    }
+
+    public void setPhoto2Path(String photo2Path){
+        this.photo2Path = photo2Path;
+    }
+
+    public void setPhoto3Path(String photo3Path){
+        this.photo3Path = photo3Path;
+    }
+
+    public String getPhoto1Path(){
+        return this.photo1Path;
+    }
+
+    public String getPhoto2Path(){
+        return this.photo2Path;
+    }
+
+    public String getPhoto3Path(){
+        return this.photo3Path;
     }
 
     // Quang add 29/12/22

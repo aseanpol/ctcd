@@ -3,15 +3,16 @@
 
 03/03/23:
 - MqttMessage : dùng mảng byte rồi check để lấy string
-- image payload : 0xFF 0xD8 . . . . 0xFF 0xD9;chuỗi unixTime,length : lấy khoảng 30 byte cuôi cùng, tìm ký tự ';', sau ký tự ; là nội dung header
-- sửa file config.xml : trong thẻ watchdog thêm images_path
+- photo payload : 0xFF 0xD8 . . . . 0xFF 0xD9;chuỗi param : lấy khoảng 100 byte cuối cùng, tìm ký tự ';', sau ký tự ; là nội dung param
+- param gồm : unixTime,lat,lng,speed,driver,license,frameSize, dài khoảng <100 byte
+- sửa file config.xml : trong thẻ watchdog thêm photos_path
+
 16/02/23:
 - khi calib lỗi thì try catch -> vẫn xử lý location và fuel=-1
 
 19/01/23:
 - fw v1.6.1 đã add các feature về network
 {"id":"ttc0_f412fa4313b8","time":1674101346,"type":"network","phone_number":"84369370621","operator":"Viettel","rssi":19,"imsi":"452048825588958","iccid":"89840480088255889583"}
-
 
 04/01/23:
 - elapse bị sai trong case : miss gps
