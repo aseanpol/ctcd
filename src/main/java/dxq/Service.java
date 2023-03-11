@@ -13,6 +13,7 @@ import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
+import java.io.File;
 import java.util.*;
 
 import dxq.util.*;
@@ -47,6 +48,28 @@ public class Service implements MqttCallbackExtended{
         opt.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1_1);
         connectMqttCloud();
         connectAmqpDRVN(util);
+
+        // test phan quyen folder
+//        System.out.println("is linux="+MyUtil.isLinux());
+//        String folderName = util.getPhotosPath() + "/test";
+//        File folder = new File(folderName);
+//        if (!folder.exists()) {
+//            // neu chua co folder thi create folder
+//            boolean success = folder.mkdir();
+//            System.out.println("Create folder " + folderName + " success : " + success);
+//            if (!success) {
+//                // neu tao folder khong duoc thi return
+////                System.out.println("Create folder error, imei=" + imei);
+//                return;
+//            }
+//            // phan quyen folder
+//            if(MyUtil.isLinux()){
+//                try{
+//                    Runtime.getRuntime().exec("chown " + MyUtil.chown + " " + folderName);
+//                }catch(Exception ex){ex.printStackTrace();}
+//            }else{
+//            }
+//        }
 //        int minLevel = 0;
 //        int maxLevel = 700;
 //        int minValue = 5;
@@ -58,7 +81,7 @@ public class Service implements MqttCallbackExtended{
     private void connectMqttCloud() {
         serviceLog.info("Connecting mqtt cloud "+util.getBrokerAddress()+" . . .","info");
         try {
-            client=new MqttClient(util.getBrokerAddress(),util.getClientId(),persistence);
+            client = new MqttClient(util.getBrokerAddress(), util.getClientId(), persistence);
             client.setCallback(this);
             client.connect(opt);
         }catch(MqttException ex) {
@@ -73,7 +96,7 @@ public class Service implements MqttCallbackExtended{
         String topic = util.getCtcTopic();
         try {
             if(client.isConnected()) {
-                client.subscribe(topic);
+                client.subscribe(topic, 2);
                 serviceLog.info("subscribe : "+topic,"info");
                 System.out.println("Subscribe CTC topic");
             }else{
