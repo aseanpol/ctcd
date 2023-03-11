@@ -2,12 +2,16 @@
 
 package dxq;
 
+import java.awt.*;
+import java.awt.font.TextAttribute;
+import java.awt.image.BufferedImage;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.lang.Math;
+import java.text.AttributedString;
 import java.util.*;
 
 import dxq.tracker.*;
@@ -22,6 +26,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonWriter;
 import com.rabbitmq.client.Channel;
+
+import javax.imageio.ImageIO;
 import java.io.*;
 
 public class TrackerAdapter extends Thread{
@@ -122,6 +128,7 @@ public class TrackerAdapter extends Thread{
                     // Quang edit 10/12/22
                     ctc.setFuelRaw(fuelRaw);
                     ctc.calibFuel(fuelRaw);
+                    System.out.println("calib device id="+ctc.getID());
                 }
                 if(ctc.isTempEnable()){
                     ctc.setTemp(tempValue);
@@ -180,7 +187,7 @@ public class TrackerAdapter extends Thread{
 //                    System.out.println("is ND91");
                 }
 //                System.out.println("imei=" + imei + ", distance=" + t.getDistance() + ", dayStretch=" + t.getDayStretch() + ", is fixGPS=" + t.isFixGPS());
-                System.out.println("imei="+ imei + ",unixTime="+util.unixTime2Date(unixTime)+", lat=" + lat + ", lng=" +lng + ",speed=" + speed + ", rawFuel=" + fuelRaw + ", fuelValue=" + t.getFuel()+",driver="+driver+",license="+license);
+//                System.out.println("imei="+ imei + ",unixTime="+util.unixTime2Date(unixTime)+", lat=" + lat + ", lng=" +lng + ",speed=" + speed + ", rawFuel=" + fuelRaw + ", fuelValue=" + t.getFuel()+",driver="+driver+",license="+license);
             }else{
 //                System.out.println("is null, imei=" + imei);
             }
@@ -311,6 +318,38 @@ public class TrackerAdapter extends Thread{
                     license = arr[5];
                     int frameSize = Integer.parseInt(arr[6]);
                     String dateTime = MyUtil.unixTime2Date(unixTime);
+
+                    String str1 = t.getNumberPlate() + ", " + dateTime;
+                    String str2 = driver;
+                    String str3 = lat+", "+lng+", "+speed+" km/h";
+
+                    t.setTime(unixTime);
+                    t.setLat(lat);
+                    t.setLng(lng);
+                    t.setSpeed(speed);
+                    t.setDriverName(driver);
+                    t.setDriverLicense(license);
+
+                    // lay GEO : Quang edit 10/03/23 -> tach rieng ra method
+//                    Connection geoCon = null;
+//                    CallableStatement cs = null;
+//                    String address = "";
+//                    try {
+//                        geoCon = util.getGcConnection();
+//                        cs = geoCon.prepareCall("{?=call getGoogleGeo(?,?)}");
+//                        cs.setFloat(2, t.getLat());// lat
+//                        cs.setFloat(3, t.getLng());// lng
+//                        cs.registerOutParameter(1, Types.NVARCHAR);// address
+//                        cs.execute();
+//                        address = cs.getString(1);
+//                        cs.close();
+//                        geoCon.close();
+//                    }catch(Exception ex) {
+//                        ex.printStackTrace();
+//                        this.writeAdapterLog("Exception in photo, getAddress, msg = " + ex.getMessage());
+//                    }
+                    t.setAddress(getMyGeo(t.getLat(), t.getLng()));
+
                     t.setPhoto3Path(unixTime + ".jpg");
 //                    String folderName = System.getProperty("user.dir") + "/images";
                     String folderName = util.getPhotosPath() + "/" + t.getID();
@@ -324,25 +363,32 @@ public class TrackerAdapter extends Thread{
                             System.out.println("Create folder error, imei=" + imei);
                             return;
                         }
+                        // phan quyen folder deviceID
+                        if(MyUtil.isLinux()){
+                            Runtime.getRuntime().exec("chown " + MyUtil.chown + " " + folderName);
+                        }else{}
                     }
-                    String fileName = folderName + "/" + t.getPhoto3Path();
-                    System.out.println("param=" + unixTime + "," + lat + "," + lng + "," + speed + "," + driver + "," + license + "," + dateTime);
+                    String filePath = folderName + "/" + t.getPhoto3Path();
+//                    System.out.println("param=" + unixTime + "," + lat + "," + lng + "," + speed + "," + driver + "," + license + "," + dateTime);
+
                     // co duoc mang byte payload -> xu ly image
+                    BufferedImage img = addTextToImage(payload,str1, str2, str3);
+                    if(img != null){
+                        ImageIO.write(img, "jpg", new File(filePath));
+                        img.flush();
 
-
-                    // ket qua la mang byte imageData
-                    byte[] imageData = Arrays.copyOfRange(payload, 0, payload.length);
-                    System.out.println("payload length=" + payload.length + ",frameSize=" + frameSize + ",destination array length=" + imageData.length);
-
-//                    System.out.println("frameSize="+frameSize);
-                    bos = new BufferedOutputStream(new FileOutputStream(fileName));
-                    bos.write(imageData, 0, frameSize);
-                    bos.flush();
-                    bos.close();
-
-                    // luu photo3Path vao bang device
-                    updatePhoto3Path(t.getID(), t.getPhoto3Path());
-                    System.out.println("save photo success : " + fileName + ", frame size=" + frameSize);
+                        // phan quyen chown cho file unixTime.jpg
+                        if(MyUtil.isLinux()){
+                            Runtime.getRuntime().exec("chown " + MyUtil.chown + " " + filePath);
+                        }else{
+                        }
+                        // luu photo3Path vao bang photo
+//                        updatePhoto3Path(t.getID(), t.getPhoto3Path());
+//                        updatePhotoPath(t.getID(), 3, lat, lng, speed, unixTime, t.getPhoto3Path(), t.getAddress());
+                        updatePhotoPath(t, 3);
+                        System.out.println("save photo success : " + filePath + ", frame size=" + frameSize);
+                    }
+//                    System.out.println("payload length=" + payload.length + ",frameSize=" + frameSize + ",destination array length=" + payload.length);
                 }
             }catch(Exception ex){
                 ex.printStackTrace();
@@ -502,7 +548,6 @@ public class TrackerAdapter extends Thread{
 
     // Quang add 04/03/23 : gan giong validateIMEI nhung chi lay 1 so field can thiet cho image/photo
     public Tracker validateImageIMEI(String imei, int trackerType) {
-
         Tracker tracker = null;
         Connection con = null;
         Statement st = null;
@@ -679,24 +724,24 @@ public class TrackerAdapter extends Thread{
         }
 
         // lay GEO
-        Connection geoCon = null;
-        CallableStatement cs = null;
-        String address = "";
-        try {
-            geoCon = util.getGcConnection();
-            cs = geoCon.prepareCall("{?=call getGoogleGeo(?,?)}");
-            cs.setFloat(2, tracker.getLat());// lat
-            cs.setFloat(3, tracker.getLng());// lng
-            cs.registerOutParameter(1, Types.NVARCHAR);// address
-            cs.execute();
-            address = cs.getString(1);
-            cs.close();
-            geoCon.close();
-        }catch(Exception ex) {
-            ex.printStackTrace();
-            this.writeAdapterLog("Exception in prepareLocation, getAddress, msg = " + ex.getMessage());
-        }
-        tracker.setAddress(address);
+//        Connection geoCon = null;
+//        CallableStatement cs = null;
+//        String address = "";
+//        try {
+//            geoCon = util.getGcConnection();
+//            cs = geoCon.prepareCall("{?=call getGoogleGeo(?,?)}");
+//            cs.setFloat(2, tracker.getLat());// lat
+//            cs.setFloat(3, tracker.getLng());// lng
+//            cs.registerOutParameter(1, Types.NVARCHAR);// address
+//            cs.execute();
+//            address = cs.getString(1);
+//            cs.close();
+//            geoCon.close();
+//        }catch(Exception ex) {
+//            ex.printStackTrace();
+//            this.writeAdapterLog("Exception in prepareLocation, getAddress, msg = " + ex.getMessage());
+//        }
+        tracker.setAddress(getMyGeo(tracker.getLat(), tracker.getLng()));
     }
 
     // xu ly sau khi prepareLocation
@@ -747,19 +792,25 @@ public class TrackerAdapter extends Thread{
         Connection con = null;
         Statement st = null;
         ResultSet rs = null;
-        String sql = "";
+        String sql = "", address = "";
+        if(tracker.getAddress() == null) {
+            address = "null";
+        }else {
+            address = "'" + tracker.getAddress() + "'";
+        }
         try {
             con = util.getRtsConnection();
             st = con.createStatement();
             sql = "INSERT INTO mileage(mileage_id, device_id, imei, latitude, longitude, " +
                     "receive_time, description, position) " +
                     "VALUES (null," + tracker.getID() + ",'" + tracker.getIMEI() + "'," + tracker.getLat() + "," +
-                    "" + tracker.getLng() + "," + tracker.getTime() + ",'',";
-            if(tracker.getAddress()==null) {
-                sql += "null)";
-            }else {
-                sql += "'" + tracker.getAddress() + "')";
-            }
+//                    "" + tracker.getLng() + "," + tracker.getTime() + ",'',";
+                    "" + tracker.getLng() + "," + tracker.getTime() + ",''," + address + ")";
+//            if(tracker.getAddress()==null) {
+//                sql += "null)";
+//            }else {
+//                sql += "'" + tracker.getAddress() + "')";
+//            }
             st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
             rs = st.getGeneratedKeys();
             if(rs!=null && rs.next()) {
@@ -927,10 +978,14 @@ public class TrackerAdapter extends Thread{
         Connection con = null;
         Statement st = null;
         ResultSet rs = null;
-        String sql = "";
+        String sql = "", address = "";
         long logLastInsertID = 0;
         int rowCount = 0;
-
+        if(tracker.getAddress() == null) {
+            address = "null";
+        }else {
+            address = "'" + tracker.getAddress() + "'";
+        }
         try{
             // Quang edit 18/10/22 : khoi phuc lai day_stretch : update vao cot trong device_log
             tracker.setDayStretch(tracker.getDayStretch() + tracker.getDistance());
@@ -955,12 +1010,12 @@ public class TrackerAdapter extends Thread{
                     "" + tracker.getSD() + "," + tracker.getDi2() + "," + tracker.getTime() + "," + tracker.getTime() +
                     "," + tracker.getElapse() + "," + tracker.getDistance() + "," + tracker.isOverSpeed() + ",0,'" +
                     "" + tracker.getDriverName() + "','" + tracker.getDriverLicense() + "'," + tracker.getDayStretch() + "," +
-                    "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + ",";
-            if(tracker.getAddress()==null) {
-                sql+= "null)";
-            }else {
-                sql+= "'" + tracker.getAddress() + "')";
-            }
+                    "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + "," + address + ")";
+//            if(tracker.getAddress()==null) {
+//                sql+= "null)";
+//            }else {
+//                sql+= "'" + tracker.getAddress() + "')";
+//            }
             st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
             rs = st.getGeneratedKeys();
             if(rs!=null && rs.next()) {
@@ -1036,10 +1091,14 @@ public class TrackerAdapter extends Thread{
         Connection con = null;
         Statement st = null;
         ResultSet rs = null;
-        String sql = "";
+        String sql = "", address = "";
         long lastInsertID = 0;
         int rowCount = 0;
-
+        if(tracker.getAddress() == null) {
+            address = "null";
+        }else {
+            address = "'" + tracker.getAddress() + "'";
+        }
         try{
             // Quang edit 18/10/22 : khoi phuc lai day_stretch : update vao cot trong device_log
             tracker.setDayStretch(tracker.getDayStretch() + tracker.getDistance());
@@ -1063,12 +1122,12 @@ public class TrackerAdapter extends Thread{
                     "" + tracker.getSD() + "," + tracker.getDi2() + "," + tracker.getTime() + "," + tracker.getTime() +
                     "," + tracker.getElapse() + "," + tracker.getDistance() + "," + tracker.isOverSpeed() + ",0,'" +
                     "" + tracker.getDriverName() + "','" + tracker.getDriverLicense() + "'," + tracker.getDayStretch() + "," +
-                    "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + ",";
-            if(tracker.getAddress()==null) {
-                sql+= "null)";
-            }else {
-                sql+= "'" + tracker.getAddress() + "')";
-            }
+                    "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + "," + address + ")";
+//            if(tracker.getAddress()==null) {
+//                sql+= "null)";
+//            }else {
+//                sql+= "'" + tracker.getAddress() + "')";
+//            }
             st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
             rs = st.getGeneratedKeys();
             if(rs!=null && rs.next()) {
@@ -1101,10 +1160,14 @@ public class TrackerAdapter extends Thread{
         Connection con = null;
         Statement st = null;
         ResultSet rs = null;
-        String sql = "";
+        String sql = "", address = "";
         long lastInsertID = 0;
         int rowCount = 0;
-
+        if(tracker.getAddress() == null) {
+            address = "null";
+        }else {
+            address = "'" + tracker.getAddress() + "'";
+        }
         sql = "INSERT INTO device_log(device_id, latitude, longitude, angle," +
                 "speed, gps, power, fuel_raw, fuel_value, temp_value, over_temp, " +
                 "aircon_value, truck_value, door, di2, begin_time, end_time, " +
@@ -1119,12 +1182,12 @@ public class TrackerAdapter extends Thread{
                 "" + tracker.getSD() + "," + tracker.getDi2() + "," + tracker.getTime() + "," + tracker.getTime() +
                 ",0,0," + tracker.isOverSpeed() + ",0,'" +
                 "" + tracker.getDriverName() + "','" + tracker.getDriverLicense() + "',0," +
-                "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + ",";
-        if(tracker.getAddress()==null) {
-            sql+= "null)";
-        }else {
-            sql+= "'" + tracker.getAddress() + "')";
-        }
+                "" + tracker.getDrivingElapse() + "," + tracker.isDrivingOvertime() + "," + address + ")";
+//        if(tracker.getAddress()==null) {
+//            sql+= "null)";
+//        }else {
+//            sql+= "'" + tracker.getAddress() + "')";
+//        }
         try{
 //            System.out.println(tracker.getLat()+"--"+tracker.getLng());
             con = util.getRtsConnection();
@@ -1465,16 +1528,33 @@ public class TrackerAdapter extends Thread{
         }
     }
 
-    // Quang add 05/03/23
-    private synchronized void updatePhoto3Path(long deviceID, String photo3Path){
+    // Quang add 05/03/23, private synchronized void updatePhoto3Path(long deviceID, String photo3Path){
+//    private synchronized void updatePhotoPath(long deviceID, int channel, float lat, float lng, int speed, long unixTime, String photoPath, String address){
+    private synchronized void updatePhotoPath(Tracker t, int channel){
         Connection con = null;
         ResultSet rs = null;
         Statement st = null;
-        String sql = "UPDATE device SET photo3_path='" + photo3Path + "' WHERE device_id=" + deviceID;
+        String address = "";
+
+//        String sql = "UPDATE device SET photo3_path='" + photoPath + "' WHERE device_id=" + deviceID;
+        if(t.getAddress() == null) {
+            address = "null";
+        }else {
+            address = "'" + t.getAddress() + "'";
+        }
+        String sql = "INSERT INTO photo values(null," + t.getID() +"," + channel + "," + t.getLat() + "," +
+                t.getLng() + "," + t.getSpeed() + "," + t.getTime() + ",'" + t.getPhoto3Path() + "',true," + address + ")";
         try{
             con = util.getRtsConnection();
             st = con.createStatement();
             st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+            rs = st.getGeneratedKeys();
+            if(rs!=null && rs.next() && (channel == 3)) {
+                long photoLastInsertID = rs.getLong(1);
+                sql = "UPDATE device SET photo3_id=" + photoLastInsertID + " WHERE device_id=" + t.getID();
+                st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+            }
+//            System.out.println(sql+","+channel);
             con.close();
         }catch(Exception ex){
             ex.printStackTrace();
@@ -1524,6 +1604,19 @@ public class TrackerAdapter extends Thread{
         String sql = "SELECT device_id FROM device WHERE imei='" + imei + "' LIMIT 1";
         boolean exist = false;
         int deviceID = 0;
+
+        String[] arr = coordinate.split(",");
+        float lat = Float.parseFloat(arr[0]);
+        float lng = Float.parseFloat(arr[1]);
+        // lay GEO
+        String geoAddress = getMyGeo(lat, lng);
+        String address = "";
+        if(geoAddress == null) {
+            address = "null";
+        }else {
+            address = "'" + geoAddress + "'";
+        }
+
         try {
             con = util.getRtsConnection();
             st = con.createStatement();
@@ -1541,7 +1634,8 @@ public class TrackerAdapter extends Thread{
                         "coordinate, receive_time, position, stretch, description) " +
                         "VALUES (null," + deviceID + ",'" + imei + "','" + driverName +
                         "','" + driverLicense + "'," + averageSpeed + "," + speedLimit +
-                        ",'" + coordinate + "'," + time + ",null," + stretch +",'" + desc + "')";
+//                        ",'" + coordinate + "'," + time + ",null," + stretch +",'" + desc + "')";
+                        ",'" + coordinate + "'," + time + "," + address + "," + stretch +",'" + desc + "')";
                 int lastId = st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
                 st.close();
             }
@@ -1560,6 +1654,19 @@ public class TrackerAdapter extends Thread{
         String sql = "SELECT device_id FROM device WHERE imei='" + imei + "' LIMIT 1";
         boolean exist = false;
         int deviceID = 0;
+
+        String[] arr = coordinate.split(",");
+        float lat = Float.parseFloat(arr[1]);
+        float lng = Float.parseFloat(arr[0]);
+        // lay GEO
+        String geoAddress = getMyGeo(lat, lng);
+        String address = "";
+        if(geoAddress == null) {
+            address = "null";
+        }else {
+            address = "'" + geoAddress + "'";
+        }
+
         try {
             con = util.getRtsConnection();
             st = con.createStatement();
@@ -1575,7 +1682,7 @@ public class TrackerAdapter extends Thread{
                 sql = "INSERT INTO park (park_id, device_id, imei, " + "driver_name, driver_license, " +
                         "coordinate, elapse, receive_time, position, description) " +
                         "VALUES (null," + deviceID + ",'" + imei + "','" + driverName + "','" + driverLicense +
-                        "','" + coordinate + "'," + elapse + "," + time + ",null,'" + desc + "')";
+                        "','" + coordinate + "'," + elapse + "," + time + "," + address + ",'" + desc + "')";
                 int lastId = st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
                 st.close();
             }
@@ -1595,6 +1702,28 @@ public class TrackerAdapter extends Thread{
         String sql = "SELECT device_id FROM device WHERE imei='" + imei + "' LIMIT 1";
         boolean exist = false;
         int deviceID = 0;
+
+        String[] arr = startCoordinate.split(",");
+        float startLat = Float.parseFloat(arr[1]);
+        float startLng = Float.parseFloat(arr[0]);
+        arr = endCoordinate.split(",");
+        float endLat = Float.parseFloat(arr[1]);
+        float endLng = Float.parseFloat(arr[0]);
+        // lay GEO
+        String geoAddress = getMyGeo(startLat, startLng);
+        String startAddress = "", endAddress = "";
+        if(geoAddress == null) {
+            startAddress = "null";
+        }else {
+            startAddress = "'" + geoAddress + "'";
+        }
+        geoAddress = getMyGeo(endLat, endLng);
+        if(geoAddress == null) {
+            endAddress = "null";
+        }else {
+            endAddress = "'" + geoAddress + "'";
+        }
+
         try {
             con = util.getRtsConnection();
             st = con.createStatement();
@@ -1612,8 +1741,8 @@ public class TrackerAdapter extends Thread{
                         "start_position, end_time, end_coordinate, end_position, receive_time, description) " +
                         "VALUES (null," + deviceID + ",'" + imei + "','" + driverName + "','" +
                         driverLicense + "'," + drivingElapse + "," + drivingStretch + "," + drivingTimeLimit + "," +
-                        isOvertime + "," + startTime + ",'" + startCoordinate + "',null," +
-                        endTime + ",'" + endCoordinate + "',null," + time + ",'" + desc + "')";
+                        isOvertime + "," + startTime + ",'" + startCoordinate + "'," + startAddress + "," +
+                        endTime + ",'" + endCoordinate + "'," + endAddress + "," + time + ",'" + desc + "')";
                 int lastId = st.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
                 st.close();
             }
@@ -1710,9 +1839,65 @@ public class TrackerAdapter extends Thread{
 //            this.writeAdapterLog("Exception in updateAMQPLog, msg = " + ex.getMessage());
         }
     }
+
+    private synchronized String getMyGeo(float lat, float lng){
+        // lay GEO
+        Connection geoCon = null;
+        CallableStatement cs = null;
+        String address = null;
+
+//        System.out.println("getMyGeo:"+lat+","+lng);
+        try {
+            geoCon = util.getGcConnection();
+            cs = geoCon.prepareCall("{?=call getGoogleGeo(?,?)}");
+            cs.setFloat(2, lat);
+            cs.setFloat(3, lng);
+            cs.registerOutParameter(1, Types.NVARCHAR);// address
+            cs.execute();
+            address = cs.getString(1);
+            cs.close();
+            geoCon.close();
+        }catch(Exception ex) {
+            ex.printStackTrace();
+            this.writeAdapterLog("Exception in getMyGeo, msg = " + ex.getMessage());
+            address = null;
+        }
+//        System.out.println("my address="+address);
+        return address;
+    }
     //----------------------------------------------------------------------------------------------------
     private void writeAdapterLog(String msg){
         adapterLog.info(msg,"info");
 //        System.out.println(msg);
+    }
+
+    private BufferedImage addTextToImage(byte[] imageData, String str1, String str2, String str3){
+        BufferedImage img = null;
+        try{
+            ByteArrayInputStream bais = new ByteArrayInputStream(imageData);
+            img = ImageIO.read(bais);
+            int width = img.getWidth();
+            int height = img.getHeight();
+            Graphics g = img.getGraphics();
+            g.setFont(new Font("Arial", Font.ROMAN_BASELINE, 16));
+            g.setColor(new Color(255, 255, 255));
+            AttributedString as1 = new AttributedString(str1);
+            as1.addAttribute(TextAttribute.SIZE, 16);
+            as1.addAttribute(TextAttribute.BACKGROUND, new Color(126, 126, 126, 150), 0, str1.length());
+            AttributedString as2 = new AttributedString(str2);
+            as2.addAttribute(TextAttribute.SIZE, 16);
+            as2.addAttribute(TextAttribute.BACKGROUND, new Color(126, 126, 126, 150), 0, str2.length());
+            AttributedString as3 = new AttributedString(str3);
+            as3.addAttribute(TextAttribute.SIZE, 16);
+            as3.addAttribute(TextAttribute.BACKGROUND, new Color(126, 126, 126, 150), 0, str3.length());
+            g.drawString(as1.getIterator(), (int)((width*3)/100), (int)((height*5)/100));
+            g.drawString(as2.getIterator(), (int)((width*80)/100), (int)((height*5)/100));
+            g.drawString(as3.getIterator(), (int)((width*3)/100), (int)((height*95)/100));
+            g.dispose();
+            bais.close();
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return img;
     }
 }

@@ -37,6 +37,7 @@ public class MyUtil {
     private boolean forwardEnable;
     private static Path2D.Float path2D;
     private String photosPath;
+    public static String chown;
 
     public MyUtil(){
         try{
@@ -95,6 +96,7 @@ public class MyUtil {
                         subscribeInterval = Integer.parseInt(nod.getElementsByTagName("subscribe-interval").item(0).getTextContent());
                         publishInterval = Integer.parseInt(nod.getElementsByTagName("publish-interval").item(0).getTextContent());
                         photosPath = nod.getElementsByTagName("photos-path").item(0).getTextContent();
+                        chown = nod.getElementsByTagName("chown").item(0).getTextContent();
                     }/*else if(node.getNodeName().equalsIgnoreCase("forward_server")){
                         Element nod = (Element)node;
                         forwardEnable = Boolean.parseBoolean(nod.getElementsByTagName("enable").item(0).getTextContent());
@@ -268,6 +270,11 @@ public class MyUtil {
     return this.photosPath;
 }
 
+    public static boolean isLinux(){
+        String os = System.getProperty("os.name");
+//        System.out.println(os);
+        return os.toLowerCase().indexOf("linux") >= 0;
+    }
 //    public static String createPhotoFilePath(String imei){// throws Exception {
 //        String path=System.getProperty("photo.path");;
 //        //String imei="6101225537";
