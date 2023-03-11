@@ -1,5 +1,16 @@
 # Changelog
 // timeStamp, lat, lng, speed, acc, sdStatus, fuel, angle, distance, driver_name, driver_license, isOverSpeed, drivingElapse, isSessionOvertime, dayStretch
+11/03/23:
+- tách riêng ra thành 1 method getMyGeo
+- trước đây các case QCVN không được xử lý position, bi giờ cho getMyGeo hết : updateQCVNOverSpeed R, updateQCVNPark R lng-lat, updateQCVNDriving R lng-lat, updateMileage R
+
+07/03/23:
+- bảng cam trong rts chưa dùng
+- tạo thêm 1 bảng photo : photo_id, device_id, channel, lat, lng, speed, receive_time, path, enable, position
+- khi subscribe qos=2
+
+06/03/23:
+- phân quyền cho folder deviceID và file ảnh : gọi shell chown cho tài khoản dtd
 
 03/03/23:
 - MqttMessage : dùng mảng byte rồi check để lấy string
