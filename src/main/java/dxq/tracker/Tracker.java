@@ -321,8 +321,10 @@ public class Tracker{
                 minValue = calibMap.get(keys[0]);
                 maxValue = calibMap.get(keys[0]);
                 // cho nay xem lai khi no vuot qua index
-                for(i=0; i<keys.length; i++){
+//                System.out.println("calib length="+keys.length);
+                for(i=0; i<keys.length-1; i++){
                     int keyItem = (Integer)keys[i];
+//                    System.out.println("keyItem="+keyItem);
                     if((fuelRaw >= (Integer)keys[i]) && (fuelRaw <= (Integer)keys[i+1])){
                         minLevel = (Integer)keys[i];
                         maxLevel = (Integer)keys[i+1];
